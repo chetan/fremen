@@ -1,0 +1,174 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+gearmand - Gearman client/worker connector.
+
+=head1 SYNOPSIS
+
+ gearmand --daemon
+
+=head1 DESCRIPTION
+
+This is the main executable for L<Gearman::Server>.  It provides
+command-line configuration of port numbers, pidfiles, and
+daemonization.
+
+=head1 OPTIONS
+
+=over
+
+=item --daemonize / -d
+
+Make the daemon run in the background (good for init.d scripts, bad
+for running under daemontools/supervise).
+
+=item --port=7003 / -p 7003
+
+Set the port number, defaults to 7003.
+
+=item --pidfile=/some/dir/gearmand.pid
+
+Write a pidfile when starting up
+
+=item --debug=1
+
+Enable debugging (currently the only debug output is when a client or worker connects).
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright 2005-2007, Danga Interactive
+
+You are granted a license to use it under the same terms as Perl itself.
+
+=head1 WARRANTY
+
+This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.
+
+=head1 AUTHORS
+
+Brad Fitzpatrick <brad@danga.com>
+
+Brad Whitaker <whitaker@danga.com>
+
+=head1 SEE ALSO
+
+L<Gearman::Server>
+
+L<Gearman::Client>
+
+L<Gearman::Worker>
+
+L<Gearman::Client::Async>
+
+=cut
+
+package Gearmand;
+use strict;
+use warnings;
+BEGIN {
+    $^P = 0x200;  # Provide informative names to anonymous subroutines
+}
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use Gearman::Server;
+
+use Getopt::Long;
+use Carp;
+use Danga::Socket 1.52;
+use IO::Socket::INET;
+use POSIX ();
+use Gearman::Util;
+use vars qw($DEBUG);
+use Scalar::Util ();
+
+$DEBUG = 0;
+
+my (
+    $daemonize,
+    $nokeepalive,
+    $notify_pid,
+    $opt_pidfile,
+   );
+my $conf_port = 7003;
+
+Getopt::Long::GetOptions(
+                         'd|daemonize'    => \$daemonize,
+                         'p|port=i'       => \$conf_port,
+                         'debug=i'        => \$DEBUG,
+			 'pidfile=s'      => \$opt_pidfile,
+                         'notifypid|n=i'  => \$notify_pid,  # for test suite only.
+                         );
+
+daemonize() if $daemonize;
+
+# true if we've closed listening socket, and we're waiting for a
+# convenient place to kill the process
+our $graceful_shutdown = 0;
+
+$SIG{'PIPE'} = "IGNORE";  # handled manually
+
+my $server = Gearman::Server->new;
+my $ssock  = $server->create_listening_sock($conf_port);
+
+if ($opt_pidfile) {
+    open my $fh, '>', $opt_pidfile or die "Could not open $opt_pidfile: $!";
+    print $fh "$$\n";
+    close $fh;
+}
+
+sub shutdown_graceful {
+    return if $graceful_shutdown;
+
+    my $ofds = Danga::Socket->OtherFds;
+    delete $ofds->{fileno($ssock)};
+    $ssock->close;
+    $graceful_shutdown = 1;
+    shutdown_if_calm();
+}
+
+sub shutdown_if_calm {
+    exit 0 unless $server->jobs_outstanding;
+}
+
+sub daemonize {
+    my ($pid, $sess_id, $i);
+
+    ## Fork and exit parent
+    if ($pid = fork) { exit 0; }
+
+    ## Detach ourselves from the terminal
+    croak "Cannot detach from controlling terminal"
+        unless $sess_id = POSIX::setsid();
+
+    ## Prevent possibility of acquiring a controling terminal
+    $SIG{'HUP'} = 'IGNORE';
+    if ($pid = fork) { exit 0; }
+
+    ## Change working directory
+    chdir "/";
+
+    ## Clear file creation mask
+    umask 0;
+
+    ## Close open file descriptors
+    close(STDIN);
+    close(STDOUT);
+    close(STDERR);
+
+    ## Reopen stderr, stdout, stdin to /dev/null
+    open(STDIN,  "+>/dev/null");
+    open(STDOUT, "+>&STDIN");
+    open(STDERR, "+>&STDIN");
+}
+
+kill 'USR1', $notify_pid if $notify_pid;
+Danga::Socket->EventLoop();
+
+# Local Variables:
+# mode: perl
+# c-basic-indent: 4
+# indent-tabs-mode: nil
+# End:
