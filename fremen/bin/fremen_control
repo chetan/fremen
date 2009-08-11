@@ -1,0 +1,17 @@
+#!/usr/bin/env perl
+
+use strict;
+
+use Term::ReadLine;
+
+my $term = new Term::ReadLine 'Fremen';
+my $OUT = $term->OUT || \*STDOUT;
+my $cxt = Devel::EvalContext->new;
+while (defined($_ = $term->readline("fremen> "))) {
+    if (/\S/) {
+        my $res = $cxt->run($_);
+        warn $@ if $@;
+        print $OUT $res, "\n" unless $@ || !defined($res);
+        $term->addhistory($_);
+    }
+}

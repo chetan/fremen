@@ -1,30 +1,8 @@
-package Fremen;
+package Fremen::Agent::Workers;
 
 use strict;
 
-use Fremen::Status::Gearman;
 
-my $gearman_status = undef;
-
-sub get_agents {
-    my($class) = @_;
-    my $gs = $class->gearman_status();
-    return grep( { $_->{agent} } $gs->workers() );
-}
-
-sub get_workers {
-    my($class) = @_;
-    my $gs = $class->gearman_status();
-    return grep( { ! $_->{agent} } $gs->workers() );
-}
-
-sub gearman_status {
-    my($class) = @_;
-    if ( not $gearman_status ) {
-        $gearman_status = Fremen::Status::Gearman->new('localhost:7003');
-    }
-    return $gearman_status;
-}
 
 =head1 NAME
 

@@ -2,10 +2,13 @@ package Fremen::Runner;
 
 use warnings;
 use strict;
+no strict 'refs';
 
 use Data::Dumper;
 use Getopt::Long;
 use Pod::Usage;
+
+our $ALIAS;
 
 sub new {
     my($class, %self) = @_;
@@ -78,18 +81,35 @@ sub start_gearman {
     $worker->job_servers( @{$self->{gearmand}} );
     
     for my $class ( @{$self->{gearman}} ) {
+    
+        # load module
         eval "require $class" || die "unable to load package $class, $@";
         die "package $class does not have work() routine" 
             if ! $class->can('work');
         
         if ($class->isa('Fremen::Worker')) {
-            Fremen::Worker->wrap($class);
+            Fremen::Worker->wrap_json($class);
+            Fremen::Worker->wrap_stats($class);
         }
         
+        # register the routine
         my $sub = "${class}::work";
         print "registering $sub\n";
         $worker->register_function($sub => \&{$sub});
+        
+        # check for alias
+        my $alias = ${"${class}::ALIAS"};
+        if ($alias) {
+            print "  registering alias $alias\n";
+            $worker->register_function($alias => \&{$sub});
+        }
+        
     }
+    
+    # add helper methods
+    $worker->register_function(
+        "fremen_stats_" . $worker->{client_id} => \&{'Fremen::Worker::stats'});
+    
     $worker->work while 1;
 }
 

@@ -6,12 +6,22 @@ use strict;
 use JSON;
 use Sub::Install;
 
+use Fremen::SysInfo;
+
+our $stats = {};
+
+sub new {
+    my($self) = @_;
+    $self = fields::new($self) unless ref $self;
+    return $self;
+}
+
 # handle job/args before calling work()
-sub wrap {
+sub wrap_json {
 
     my($class, $module) = @_;
     
-    my $work_method_ref = \&{$module."::work"};
+    my $work_method_ref = \&{"${module}::work"};
     
     my $code = sub {
     
@@ -23,13 +33,54 @@ sub wrap {
         }
         
         my $ret = $work_method_ref->( ($pkg ? ($pkg, $job) : ($job)) );
+        if ( ref($ret) && ref($ret) ne 'SCALAR' ) {
+            $ret = to_json($ret);
+        }
         return \$ret;
-        
     };
     
     Sub::Install::reinstall_sub({code => $code,
                                  into => $module,
                                  as   => 'work'});  
+}
+
+sub wrap_stats {
+
+    my($class, $module) = @_;
+    
+    my $method = "${module}::work";
+    my $work_method_ref = \&{$method};
+    
+    my $code = sub {
+        my(@args) = @_;
+        # incr stats
+        if ($stats->{$method}) {
+            $stats->{$method}++;
+        } else {
+            $stats->{$method} = 1;
+        }
+        return $work_method_ref->(@args);
+        my $ret = $work_method_ref->(@args);
+        return \$ret;
+    };
+    
+    Sub::Install::reinstall_sub({code => $code,
+                                 into => $module,
+                                 as   => 'work'});
+}
+
+sub stats {
+    my($class, $job) = ( @_ == 2 ? @_ : (undef, @_) );
+    
+    my $proc_stats = Fremen::SysInfo->process_stats();
+    my($proc) = grep({ $_->{pid} == $$ } @$proc_stats);
+    
+    my $stats_ref = { func => $stats,
+                      proc => $proc,
+                      perl => Fremen::SysInfo->gladiator(),
+                    };
+    
+    return to_json($stats_ref);
 }
 
 =head1 NAME

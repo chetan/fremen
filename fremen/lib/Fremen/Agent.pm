@@ -1,29 +1,35 @@
-package Fremen;
+package Fremen::Agent;
 
 use strict;
 
-use Fremen::Status::Gearman;
+use JSON;
 
-my $gearman_status = undef;
+use Fremen;
+use Fremen::SysInfo;
 
-sub get_agents {
-    my($class) = @_;
-    my $gs = $class->gearman_status();
-    return grep( { $_->{agent} } $gs->workers() );
+# get system info for this node: uptime, memory
+sub status {
+    my($class, $job) = ( @_ == 2 ? @_ : (undef, @_) );
+    my $status = { uptime => Fremen::SysInfo->uptime(),
+                   memory => Fremen::SysInfo->memory(),
+                 };
+    return to_json($status);
 }
 
-sub get_workers {
-    my($class) = @_;
-    my $gs = $class->gearman_status();
-    return grep( { ! $_->{agent} } $gs->workers() );
+# this is the main routine which launches runners as necessary
+sub update {
+    print "update called in $$\n";
+    return 1;
 }
 
-sub gearman_status {
-    my($class) = @_;
-    if ( not $gearman_status ) {
-        $gearman_status = Fremen::Status::Gearman->new('localhost:7003');
-    }
-    return $gearman_status;
+# duh. not sure why we would want to but there it is. 
+sub quit {
+    exit;
+}
+
+# no-op, only here to identify us as an agent worker
+sub fremen_agent {
+    return 1;
 }
 
 =head1 NAME

@@ -1,0 +1,39 @@
+#!/usr/bin/env perl
+
+use warnings;
+use strict;
+
+use Data::Dumper;
+use Gearman::Client;
+use JSON;
+
+use Fremen::SysInfo;
+
+
+#print Dumper( Fremen::SysInfo->process_stats() );
+
+use Fremen;
+
+print Dumper( Fremen->gearman_status()->status() );
+exit;
+
+my @agents = Fremen->get_agents();
+my @workers = Fremen->get_workers();
+
+my $client = Gearman::Client->new;
+$client->job_servers('localhost');
+
+
+# get status of each agent node
+for my $agent (@agents) {
+    $client->prefix($agent->{prefix});
+    my $result_ref = $client->do_task("status");
+    print Dumper( from_json($$result_ref) );
+}
+
+# get stats of each worker node
+$client->prefix(undef);
+for my $worker (@workers) {
+    my $result_ref = $client->do_task( "fremen_stats_" . $worker->{client_id} );
+    print Dumper( from_json($$result_ref) ); # TODO - wrap Gearman::Client->do_task to encode/decode json
+}

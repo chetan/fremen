@@ -1,0 +1,19 @@
+#!/usr/bin/env perl
+
+use warnings;
+use strict;
+
+use JSON;
+use Gearman::Client;
+
+my $client = Gearman::Client->new;
+$client->job_servers('localhost');
+
+# hello world task
+$client->do_task("Fremen::Example::Gearman::HelloWorld::work");
+
+# 'add' task
+my $result_ref = $client->do_task( "add", 
+                                   to_json([1, 2]) );
+                                   
+print "result = $$result_ref\n";

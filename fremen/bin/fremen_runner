@@ -10,9 +10,4 @@ use Fremen::Runner;
 
 my $runner = Fremen::Runner->new();
 $runner->parse_options();
-
-# TODO agent process to launch the runners
-
-#print Dumper($runner);
-
 $runner->start();

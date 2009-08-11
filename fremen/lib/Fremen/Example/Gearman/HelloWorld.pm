@@ -5,6 +5,8 @@ use strict;
 
 use base qw( Fremen::Worker );
 
+our $ALIAS = 'hello_world';
+
 sub work {
     print "Hello World from $$!\n";
 }

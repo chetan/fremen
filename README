@@ -1,2 +1,9 @@
 gearman - branched from trunk r383
 theschwartz - branched from trunk r146
+
+
+notes -
+
+make install gearman
+make install theschwartz
+import theschwartz schema into fremen db

@@ -1,0 +1,24 @@
+#!/usr/bin/env perl
+
+use warnings;
+use strict;
+
+use Gearman::Worker;
+
+use Fremen::Agent;
+
+my @hosts;
+
+@hosts = qw(localhost) if not @ARGV;
+
+my $worker = Gearman::Worker->new;
+$worker->job_servers( @ARGV );
+
+# prefix with client_id so we can target jobs directly to this agent node
+$worker->prefix( $worker->{client_id} );
+
+for ( qw(fremen_agent status update quit) ) {
+    $worker->register_function( $_ => \&{"Fremen::Agent::$_"} );
+}
+
+$worker->work while 1;

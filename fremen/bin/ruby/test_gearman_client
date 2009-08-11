@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'gearman'
+require 'json'
+
+client = Gearman::Client.new( ['localhost:7003'] )
+taskset = Gearman::TaskSet.new(client)
+
+# hello world task
+task = Gearman::Task.new('Fremen::Example::Gearman::HelloWorld::work')
+if not taskset.add_task(task) then
+    raise "failed to add task"
+end
+
+# 'add' task
+task = Gearman::Task.new( 'Fremen::Example::Gearman::Add::work', 
+                          [2, 3].to_json )
+task.on_complete { |d| puts sprintf("result = %s", d) }
+taskset.add_task(task)
+
+taskset.wait(10)

@@ -1,0 +1,7 @@
+ 
+- Fremen::Status::Gearman->CMD_status()
+- Fremen::Agent::Workers all routines
+- Complete status (CPU, Memory, etc) for each worker node
+- wrap Gearman::Client->do_task to encode/decode json
+- Fremen::SysInfo->memory() for Linux
+- 
